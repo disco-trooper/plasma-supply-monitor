@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { getTotalSupply } = require("./services/ethereumService");
 const { sendNotification } = require("./services/notificationService");
+const { log } = require("./utils/logger");
 
 const pollingInterval = process.env.POLLING_INTERVAL || 60000;
 let lastTotalSupply = null;
@@ -11,7 +12,7 @@ const monitorTotalSupply = async () => {
     const currentTotalSupplyString = currentTotalSupply.toString();
 
     if (lastTotalSupply === null) {
-      console.log(
+      log(
         `Monitoring started. Initial total supply: ${currentTotalSupplyString}`
       );
       lastTotalSupply = currentTotalSupplyString;
@@ -20,14 +21,14 @@ const monitorTotalSupply = async () => {
 
     if (lastTotalSupply !== currentTotalSupplyString) {
       const message = `Total Supply has changed!\nOld value: ${lastTotalSupply}\nNew value: ${currentTotalSupplyString}`;
-      console.log(message);
+      log(message);
       await sendNotification(message);
       lastTotalSupply = currentTotalSupplyString;
     } else {
-      console.log(`Total supply unchanged: ${currentTotalSupplyString}`);
+      log(`Total supply unchanged: ${currentTotalSupplyString}`);
     }
   } catch (error) {
-    console.error("An error occurred during monitoring:", error.message);
+    log(`An error occurred during monitoring: ${error.message}`);
   }
 };
 
@@ -37,15 +38,15 @@ const startMonitoring = () => {
     !process.env.TELEGRAM_BOT_TOKEN ||
     !process.env.TELEGRAM_CHAT_ID
   ) {
-    console.error(
+    log(
       "Error: Missing required environment variables. Please check your .env file."
     );
     process.exit(1);
   }
 
-  console.log("Starting total supply monitor...");
-  console.log(`Polling interval set to ${pollingInterval}ms`);
-  console.log("Notifications will be sent via Telegram.");
+  log("Starting total supply monitor...");
+  log(`Polling interval set to ${pollingInterval}ms`);
+  log("Notifications will be sent via Telegram.");
 
   monitorTotalSupply();
 
