@@ -6,6 +6,7 @@ let webSocketProvider;
 let httpProvider;
 let webSocketContract;
 let heartbeatInterval;
+let tokenDecimalsCache = null;
 
 function initializeWebSocket() {
   log("Initializing new WebSocket provider...");
@@ -82,6 +83,31 @@ function stopHeartbeat() {
   clearInterval(heartbeatInterval);
 }
 
+const getTokenDecimals = async () => {
+  if (tokenDecimalsCache !== null) {
+    return tokenDecimalsCache;
+  }
+
+  if (!httpProvider) {
+    httpProvider = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL);
+  }
+  const httpContract = new ethers.Contract(
+    process.env.CONTRACT_ADDRESS,
+    getContractAbi(),
+    httpProvider
+  );
+
+  try {
+    const decimals = await httpContract.decimals();
+    tokenDecimalsCache = Number(decimals);
+    log(`Token decimals fetched and cached: ${tokenDecimalsCache}`);
+    return tokenDecimalsCache;
+  } catch (err) {
+    error("Error fetching token decimals:", err);
+    throw err;
+  }
+};
+
 const getTotalSupply = async () => {
   if (!httpProvider) {
     httpProvider = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL);
@@ -145,6 +171,15 @@ function getContractAbi() {
       name: "Transfer",
       type: "event",
     },
+    {
+      constant: true,
+      inputs: [],
+      name: "decimals",
+      outputs: [{ name: "", type: "uint8" }],
+      payable: false,
+      stateMutability: "view",
+      type: "function",
+    },
   ];
 }
 
@@ -153,4 +188,5 @@ module.exports = {
   getTotalSupply,
   monitorSupplyEvents,
   getWebSocketProvider,
+  getTokenDecimals,
 };
