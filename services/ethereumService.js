@@ -15,19 +15,15 @@ const ws = webSocketProvider.websocket;
 // --- Heartbeat Mechanism ---
 let heartbeatInterval;
 
-function heartbeat() {
-  log("Sending heartbeat ping (eth_chainId)...");
-  // Send a harmless JSON-RPC request to keep the connection alive
-  webSocketProvider
-    .send("eth_chainId", [])
-    .then((chainId) => {
-      log(`Received heartbeat pong (chainId: ${chainId}).`);
-    })
-    .catch((err) => {
-      error("Heartbeat request failed:", err);
-      // If the heartbeat fails, something is wrong with the connection.
-      // Ethers will likely emit a 'close' or 'error' event, which will stop the heartbeat.
-    });
+async function heartbeat() {
+  log("Sending heartbeat ping (getNetwork)...");
+  try {
+    const network = await webSocketProvider.getNetwork();
+    log(`Received heartbeat pong (chainId: ${network.chainId}).`);
+  } catch (err) {
+    error("Heartbeat request failed:", err);
+    // Ethers will likely emit a 'close' or 'error' event, which will stop the heartbeat.
+  }
 }
 
 function startHeartbeat() {
