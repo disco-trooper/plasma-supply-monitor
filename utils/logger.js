@@ -1,11 +1,15 @@
-const getTimestamp = () => new Date().toISOString();
-
 const log = (message) => {
-  console.log(`[${getTimestamp()}] ${message}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${message}`);
 };
 
 const error = (message, err) => {
-  console.error(`[${getTimestamp()}] ${message}`, err || "");
+  const timestamp = new Date().toISOString();
+  if (err) {
+    console.error(`[${timestamp}] ${message}`, err);
+  } else {
+    console.error(`[${timestamp}] ${message}`);
+  }
 };
 
 module.exports = { log, error };

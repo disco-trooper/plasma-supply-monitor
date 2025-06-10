@@ -9,6 +9,59 @@ const webSocketProvider = new ethers.WebSocketProvider(
   process.env.ETHEREUM_WSS_URL
 );
 
+// --- Attach listeners immediately after creation to avoid race conditions ---
+const ws = webSocketProvider.websocket;
+
+// --- Heartbeat Mechanism ---
+let heartbeatInterval;
+
+function heartbeat() {
+  log("Sending heartbeat ping (eth_chainId)...");
+  // Send a harmless JSON-RPC request to keep the connection alive
+  webSocketProvider
+    .send("eth_chainId", [])
+    .then((chainId) => {
+      log(`Received heartbeat pong (chainId: ${chainId}).`);
+    })
+    .catch((err) => {
+      error("Heartbeat request failed:", err);
+      // If the heartbeat fails, something is wrong with the connection.
+      // Ethers will likely emit a 'close' or 'error' event, which will stop the heartbeat.
+    });
+}
+
+function startHeartbeat() {
+  log("Starting heartbeat mechanism.");
+  // Clear any existing interval before starting a new one.
+  clearInterval(heartbeatInterval);
+  heartbeatInterval = setInterval(heartbeat, 30000); // 30 seconds
+}
+
+function stopHeartbeat() {
+  log("Stopping heartbeat mechanism.");
+  clearInterval(heartbeatInterval);
+}
+// -------------------------
+
+// --- WebSocket Event Listeners ---
+ws.on("open", () => {
+  log("WebSocket connection opened.");
+  startHeartbeat(); // Start the heartbeat when the connection opens.
+});
+
+ws.on("close", (code) => {
+  log(
+    `WebSocket connection closed with code: ${code}. Ethers.js will attempt to reconnect.`
+  );
+  stopHeartbeat(); // Stop the heartbeat when the connection closes.
+});
+
+ws.on("error", (err) => {
+  error("Raw WebSocket error:", err);
+  stopHeartbeat(); // Also stop on error to be safe.
+});
+// --------------------------------
+
 const contractAddress = process.env.CONTRACT_ADDRESS;
 
 const contractAbi = [
@@ -55,7 +108,7 @@ const getTotalSupply = async () => {
 };
 
 const monitorSupplyEvents = (onSupplyChange) => {
-  log("Setting up event listener for Transfer events...");
+  log("Setting up contract event listener for Transfer events...");
 
   webSocketContract.on("Transfer", async (from, to) => {
     const zeroAddress = ethers.ZeroAddress;
@@ -72,10 +125,10 @@ const monitorSupplyEvents = (onSupplyChange) => {
     }
   });
 
-  // The 'error' event on the provider is the correct way to handle WebSocket errors
+  // The 'error' event on the provider is the correct way to handle provider-level errors
   webSocketProvider.on("error", (err) => {
     error(
-      "WebSocket Provider error. The provider will attempt to reconnect.",
+      "Ethers WebSocket Provider error. The provider will attempt to reconnect.",
       err
     );
   });
